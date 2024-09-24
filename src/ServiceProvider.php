@@ -12,6 +12,8 @@ use OpenAI\Contracts\ClientContract;
 use OpenAI\Laravel\Commands\InstallCommand;
 use OpenAI\Laravel\Exceptions\ApiKeyIsMissing;
 
+use function is_string;
+
 /**
  * @internal
  */
@@ -26,16 +28,24 @@ final class ServiceProvider extends BaseServiceProvider implements DeferrablePro
             $apiKey = config('openai.api_key');
             $organization = config('openai.organization');
 
+            $baseUri = config('openai.base_uri');
             if (! is_string($apiKey) || ($organization !== null && ! is_string($organization))) {
                 throw ApiKeyIsMissing::create();
             }
 
-            return OpenAI::factory()
+            if (! is_string($apiKey) || ($organization !== null && ! is_string($organization))) {
+                throw ApiKeyIsMissing::create();
+            }
+
+            $client = OpenAI::factory()
                 ->withApiKey($apiKey)
                 ->withOrganization($organization)
                 ->withHttpHeader('OpenAI-Beta', 'assistants=v2')
-                ->withHttpClient(new \GuzzleHttp\Client(['timeout' => config('openai.request_timeout', 30)]))
-                ->make();
+                ->withHttpClient(new \GuzzleHttp\Client(['timeout' => config('openai.request_timeout', 30)]));
+            if (is_string($baseUri)) {
+                $client->withBaseUri($baseUri);
+            }
+            return $client->make();
         });
 
         $this->app->alias(ClientContract::class, 'openai');
